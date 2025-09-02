@@ -1,22 +1,42 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export function LoginForm() {
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
+  const router = useRouter();
 
   async function onSubmit(event: React.SyntheticEvent) {
-    event.preventDefault()
-    setIsLoading(true)
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
-    // TODO: Implement login logic
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      setIsLoading(false);
+    } else {
+      router.push("/dashboard");
+    }
   }
 
   return (
@@ -40,6 +60,8 @@ export function LoginForm() {
                 autoCorrect="off"
                 disabled={isLoading}
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -50,8 +72,13 @@ export function LoginForm() {
                 autoComplete="current-password"
                 disabled={isLoading}
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+            {error && (
+              <p className="text-sm font-medium text-destructive">{error}</p>
+            )}
             <Button disabled={isLoading}>
               {isLoading && (
                 <svg
@@ -81,11 +108,14 @@ export function LoginForm() {
         </form>
         <div className="mt-4 text-center text-sm">
           Don't have an account?{" "}
-          <Link href="/register" className="underline underline-offset-4 hover:text-primary">
+          <Link
+            href="/register"
+            className="underline underline-offset-4 hover:text-primary"
+          >
             Sign up
           </Link>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

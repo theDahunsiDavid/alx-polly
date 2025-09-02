@@ -1,115 +1,50 @@
-"use client"
+"use client";
 
-import { useState, useEffect, createContext, useContext } from "react"
-import { User } from "../types"
+import { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Session } from "@supabase/supabase-js";
 
-interface AuthContextType {
-  user: User | null
-  isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
-  logout: () => void
-}
+const AuthContext = createContext<{
+  session: Session | null;
+  loading: boolean;
+}>({
+  session: null,
+  loading: true,
+});
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Check for existing auth token and validate user session
-    const checkAuth = async () => {
-      try {
-        // Check localStorage or cookies for auth token
-        const token = localStorage.getItem("auth-token")
-        if (token) {
-          // TODO: Validate token with backend
-          // For now, just simulate a user
-          setUser({
-            id: "1",
-            email: "user@example.com",
-            name: "Demo User",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error)
-      } finally {
-        setIsLoading(false)
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setSession(session);
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
       }
-    }
+    );
 
-    checkAuth()
-  }, [])
-
-  const login = async (email: string, password: string) => {
-    setIsLoading(true)
-    try {
-      // TODO: Implement actual login API call
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
-      
-      const mockUser: User = {
-        id: "1",
-        email,
-        name: "Demo User",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-      
-      setUser(mockUser)
-      localStorage.setItem("auth-token", "mock-token")
-    } catch (error) {
-      console.error("Login failed:", error)
-      throw error
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const register = async (name: string, email: string, password: string) => {
-    setIsLoading(true)
-    try {
-      // TODO: Implement actual registration API call
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
-      
-      const mockUser: User = {
-        id: "1",
-        email,
-        name,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-      
-      setUser(mockUser)
-      localStorage.setItem("auth-token", "mock-token")
-    } catch (error) {
-      console.error("Registration failed:", error)
-      throw error
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("auth-token")
-  }
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ session, loading }}>
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
-}
-
-
+export const useAuth = () => {
+  return useContext(AuthContext);
+};

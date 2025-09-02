@@ -1,22 +1,48 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 export function RegisterForm() {
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
+  const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [success, setSuccess] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
 
   async function onSubmit(event: React.SyntheticEvent) {
-    event.preventDefault()
-    setIsLoading(true)
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
 
-    // TODO: Implement registration logic
-    setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccess("Registration successful! Please check your email to verify your account.");
+    }
+    setIsLoading(false);
   }
 
   return (
@@ -40,6 +66,8 @@ export function RegisterForm() {
                 autoCorrect="off"
                 disabled={isLoading}
                 required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -52,6 +80,8 @@ export function RegisterForm() {
                 autoCorrect="off"
                 disabled={isLoading}
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -62,8 +92,16 @@ export function RegisterForm() {
                 autoComplete="new-password"
                 disabled={isLoading}
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+            {error && (
+              <p className="text-sm font-medium text-destructive">{error}</p>
+            )}
+            {success && (
+              <p className="text-sm font-medium text-green-500">{success}</p>
+            )}
             <Button disabled={isLoading}>
               {isLoading && (
                 <svg
@@ -93,11 +131,14 @@ export function RegisterForm() {
         </form>
         <div className="mt-4 text-center text-sm">
           Already have an account?{" "}
-          <Link href="/login" className="underline underline-offset-4 hover:text-primary">
+          <Link
+            href="/login"
+            className="underline underline-offset-4 hover:text-primary"
+          >
             Sign in
           </Link>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,21 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --muted: #f8f9fa;
-  --muted-foreground: #6c757d;
-  --border: #e9ecef;
+  /* Modern color palette */
+  --background: #fafbfc;
+  --foreground: #1a1a1a;
+  --muted: #f1f3f4;
+  --muted-foreground: #5f6368;
+  --border: #e8eaed;
   --input: #ffffff;
-  --primary: #0d6efd;
+  
+  /* Primary colors - Modern blue gradient */
+  --primary: #4f46e5;
   --primary-foreground: #ffffff;
-  --secondary: #6c757d;
+  --primary-light: #6366f1;
+  --primary-dark: #3730a3;
+  
+  /* Secondary colors - Purple accent */
+  --secondary: #8b5cf6;
   --secondary-foreground: #ffffff;
-  --accent: #f8f9fa;
-  --accent-foreground: #171717;
-  --destructive: #dc3545;
+  --secondary-light: #a78bfa;
+  
+  /* Accent colors - Teal */
+  --accent: #06b6d4;
+  --accent-foreground: #ffffff;
+  --accent-light: #22d3ee;
+  
+  /* Success, warning, destructive */
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --ring: #0d6efd;
+  
+  /* Ring and focus */
+  --ring: #4f46e5;
+  
+  /* Card and surface colors */
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
 }
 
 @theme inline {
@@ -34,10 +59,43 @@
 } */
 
 body {
-  background: var(--background);
+  background: linear-gradient(135deg, #fafbfc 0%, #f1f3f4 100%);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* Modern utility classes */
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+}
+
+.gradient-secondary {
+  background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-light) 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.shadow-modern {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-modern-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
 }
