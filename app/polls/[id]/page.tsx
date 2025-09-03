@@ -1,9 +1,7 @@
 import { Metadata } from "next"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { PollVoteForm } from "@/components/forms/poll-vote-form"
-import { PollResults } from "@/components/poll-results"
-import Link from "next/link"
+import { notFound } from "next/navigation"
+import { createSupabaseServerClient } from "@/lib/supabase-server"
+import { PollDetailClient } from "@/components/poll-detail-client"
 
 export const metadata: Metadata = {
   title: "Poll Details",
@@ -30,90 +28,52 @@ const mockPoll = {
   updatedAt: new Date("2024-01-15T10:00:00"),
 }
 
-export default function PollPage({ params }: { params: { id: string } }) {
-  // TODO: Fetch poll data based on params.id
-  const poll = mockPoll
+export default async function PollPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createSupabaseServerClient()
+
+  const [{ data, error }, { data: userData }] = await Promise.all([
+    supabase
+    .from("polls")
+    .select(
+      `id, title, description, created_by, is_active, allow_multiple_votes, expires_at, created_at, updated_at,
+       poll_options:poll_options(id, text, poll_id, vote_count)`
+    )
+    .eq("id", id)
+    .single(),
+    supabase.auth.getUser(),
+  ])
+
+  if (error || !data) {
+    notFound()
+  }
+
+  const totalVotes = (data.poll_options ?? []).reduce((sum: number, o: any) => sum + (o.vote_count ?? 0), 0)
+
+  const poll = {
+    id: data.id,
+    title: data.title,
+    description: data.description ?? "",
+    options: (data.poll_options ?? []).map((o: any) => ({
+      id: o.id,
+      text: o.text,
+      pollId: o.poll_id,
+      voteCount: o.vote_count ?? 0,
+    })),
+    createdBy: data.created_by,
+    isActive: data.is_active,
+    allowMultipleVotes: data.allow_multiple_votes,
+    expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
+    createdAt: new Date(data.created_at),
+    updatedAt: new Date(data.updated_at),
+    totalVotes,
+  }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">{poll.title}</h2>
-          <p className="text-muted-foreground">
-            Created by {poll.createdBy} • {new Date(poll.createdAt).toLocaleDateString()}
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" asChild>
-            <Link href="/polls">Back to Polls</Link>
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Poll Description</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{poll.description}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Poll Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Status:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  poll.isActive 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-                }`}>
-                  {poll.isActive ? 'Active' : 'Closed'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Multiple Votes:</span>
-                <span className="text-sm text-muted-foreground">
-                  {poll.allowMultipleVotes ? 'Allowed' : 'Not Allowed'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Expires:</span>
-                <span className="text-sm text-muted-foreground">
-                  {new Date(poll.expiresAt).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Total Votes:</span>
-                <span className="text-sm font-medium">{poll.totalVotes}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          {poll.isActive ? (
-            <PollVoteForm poll={poll} />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Poll Closed</CardTitle>
-                <CardDescription>
-                  This poll is no longer accepting votes
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          )}
-          
-          <PollResults poll={poll} />
-        </div>
-      </div>
-    </div>
+    <PollDetailClient 
+      poll={poll} 
+      isOwner={userData?.user?.id === poll.createdBy} 
+    />
   )
 }
 

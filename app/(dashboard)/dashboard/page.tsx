@@ -1,26 +1,47 @@
-"use client";
-
-import { Metadata } from "next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useAuth } from "@/hooks/use-auth";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
+import { deletePoll } from "@/lib/actions/polls";
 
-export default function DashboardPage() {
-  const { session, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !session) {
-      router.push("/login");
-    }
-  }, [session, loading, router]);
-
-  if (loading || !session) {
-    return <div>Loading...</div>;
+export default async function DashboardPage() {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) {
+    redirect("/login")
   }
+
+  // Fetch only the current user's polls for dashboard metrics and list
+  const { data: pollsData, error: pollsError } = await supabase
+    .from("polls")
+    .select(`
+      id, title, description, created_by, is_active, expires_at, created_at,
+      options:poll_options (id, vote_count)
+    `)
+    .eq("created_by", user.id)
+    .order("created_at", { ascending: false })
+
+  const userPollIds = (pollsData || []).map(p => p.id)
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+
+  // Count new votes today across the user's polls
+  let votesToday = 0
+  if (userPollIds.length > 0) {
+    const { count } = await supabase
+      .from("votes")
+      .select("id", { count: "exact", head: true })
+      .in("poll_id", userPollIds)
+      .gte("created_at", startOfToday.toISOString())
+    votesToday = count ?? 0
+  }
+
+  // Compute derived metrics
+  const totalPolls = pollsData?.length ?? 0
+  const nowIso = new Date().toISOString()
+  const activePolls = (pollsData || []).filter(p => p.is_active && (!p.expires_at || p.expires_at > nowIso)).length
+  const totalVotes = (pollsData || []).reduce((sum, p: any) => sum + (p.options || []).reduce((s: number, o: any) => s + (o.vote_count || 0), 0), 0)
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -54,7 +75,7 @@ export default function DashboardPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{totalPolls}</div>
             <p className="text-xs text-muted-foreground">
               +2 from last month
             </p>
@@ -78,7 +99,7 @@ export default function DashboardPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
+            <div className="text-2xl font-bold">{activePolls}</div>
             <p className="text-xs text-muted-foreground">
               Currently running
             </p>
@@ -105,7 +126,7 @@ export default function DashboardPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
+            <div className="text-2xl font-bold">{totalVotes}</div>
             <p className="text-xs text-muted-foreground">
               Across all polls
             </p>
@@ -129,7 +150,7 @@ export default function DashboardPage() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{votesToday}</div>
             <p className="text-xs text-muted-foreground">
               New votes today
             </p>
@@ -147,27 +168,38 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">Team Meeting Preferences</p>
-                  <p className="text-sm text-muted-foreground">Created 2 days ago</p>
-                </div>
-                <div className="ml-auto font-medium">Active</div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">Project Timeline Feedback</p>
-                  <p className="text-sm text-muted-foreground">Created 1 week ago</p>
-                </div>
-                <div className="ml-auto font-medium">Active</div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">Office Lunch Options</p>
-                  <p className="text-sm text-muted-foreground">Created 2 weeks ago</p>
-                </div>
-                <div className="ml-auto font-medium">Completed</div>
-              </div>
+              {(pollsData || []).map((p: any) => {
+                const optionCount = (p.options || []).length
+                const totalVotes = (p.options || []).reduce((s: number, o: any) => s + (o.vote_count || 0), 0)
+                const isOwner = p.created_by === user.id
+                const isActive = p.is_active && (!p.expires_at || p.expires_at > nowIso)
+                return (
+                  <div key={p.id} className="flex items-center gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">{p.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(p.created_at).toLocaleDateString()} • {isActive ? 'Active' : 'Closed'} • Options: {optionCount} • Votes: {totalVotes}
+                      </p>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/polls/${p.id}`}>View</Link>
+                      </Button>
+                      {isOwner && (
+                        <>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/polls/${p.id}`}>Edit</Link>
+                          </Button>
+                          <form action={deletePoll}>
+                            <input type="hidden" name="pollId" value={p.id} />
+                            <Button variant="destructive" size="sm">Delete</Button>
+                          </form>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>

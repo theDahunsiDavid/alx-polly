@@ -5,12 +5,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { X, Plus } from "lucide-react"
+import { updatePoll } from "@/lib/actions/polls"
+import { Poll } from "@/types"
 
-import { createPoll } from "@/lib/actions/polls"
+interface EditPollFormProps {
+  poll: Poll
+}
 
-export function CreatePollForm() {
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const [options, setOptions] = React.useState<string[]>(["", ""])
+export function EditPollForm({ poll }: EditPollFormProps) {
+  const [options, setOptions] = React.useState<string[]>(
+    poll.options.length > 0 ? poll.options.map(o => o.text) : ["", ""]
+  )
 
   const addOption = () => {
     setOptions([...options, ""])
@@ -28,25 +33,18 @@ export function CreatePollForm() {
     setOptions(newOptions)
   }
 
-  async function onSubmit(formData: FormData) {
-    setIsLoading(true)
-    try {
-      await createPoll(formData)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Poll Details</CardTitle>
+        <CardTitle>Edit Poll</CardTitle>
         <CardDescription>
-          Fill in the details below to create your new poll
+          Update the details of your poll
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={createPoll} className="space-y-6">
+        <form action={updatePoll} className="space-y-6">
+          <input type="hidden" name="pollId" value={poll.id} />
+          
           <div className="space-y-2">
             <label htmlFor="title" className="text-sm font-medium">
               Poll Title *
@@ -55,8 +53,8 @@ export function CreatePollForm() {
               id="title"
               name="title"
               placeholder="Enter poll title..."
+              defaultValue={poll.title}
               required
-              disabled={isLoading}
             />
           </div>
 
@@ -68,8 +66,8 @@ export function CreatePollForm() {
               id="description"
               name="description"
               placeholder="Describe what this poll is about..."
+              defaultValue={poll.description || ""}
               className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isLoading}
             />
           </div>
 
@@ -81,7 +79,6 @@ export function CreatePollForm() {
                 variant="outline"
                 size="sm"
                 onClick={addOption}
-                disabled={isLoading}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Option
@@ -96,7 +93,6 @@ export function CreatePollForm() {
                     value={option}
                     onChange={(e) => updateOption(index, e.target.value)}
                     required
-                    disabled={isLoading}
                     name="options[]"
                   />
                   {options.length > 2 && (
@@ -105,7 +101,6 @@ export function CreatePollForm() {
                       variant="outline"
                       size="sm"
                       onClick={() => removeOption(index)}
-                      disabled={isLoading}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -124,7 +119,7 @@ export function CreatePollForm() {
                 id="expiresAt"
                 type="datetime-local"
                 name="expiresAt"
-                disabled={isLoading}
+                defaultValue={poll.expiresAt ? new Date(poll.expiresAt).toISOString().slice(0, 16) : ""}
               />
             </div>
 
@@ -134,7 +129,7 @@ export function CreatePollForm() {
                 type="checkbox"
                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 name="allowMultipleVotes"
-                disabled={isLoading}
+                defaultChecked={poll.allowMultipleVotes}
               />
               <label htmlFor="allowMultipleVotes" className="text-sm font-medium">
                 Allow multiple votes per user
@@ -143,33 +138,8 @@ export function CreatePollForm() {
           </div>
 
           <div className="flex items-center justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" disabled={isLoading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && (
-                <svg
-                  className="mr-2 h-4 w-4 animate-spin"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              )}
-              Create Poll
+            <Button type="submit">
+              Update Poll
             </Button>
           </div>
         </form>
@@ -177,5 +147,3 @@ export function CreatePollForm() {
     </Card>
   )
 }
-
-

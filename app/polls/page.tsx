@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { createSupabaseServerClient } from "@/lib/supabase-server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,51 +10,33 @@ export const metadata: Metadata = {
   description: "Browse and participate in polls",
 }
 
-// Mock data - replace with actual data fetching
-const mockPolls = [
-  {
-    id: "1",
-    title: "Team Meeting Preferences",
-    description: "What time works best for our weekly team meetings?",
-    optionCount: 4,
-    totalVotes: 23,
-    isActive: true,
-    expiresAt: "2024-02-15",
-    createdBy: "John Doe",
-  },
-  {
-    id: "2",
-    title: "Project Timeline Feedback",
-    description: "How do you feel about the current project timeline?",
-    optionCount: 5,
-    totalVotes: 18,
-    isActive: true,
-    expiresAt: "2024-02-20",
-    createdBy: "Jane Smith",
-  },
-  {
-    id: "3",
-    title: "Office Lunch Options",
-    description: "What should we order for the team lunch next week?",
-    optionCount: 6,
-    totalVotes: 31,
-    isActive: false,
-    expiresAt: "2024-02-10",
-    createdBy: "Mike Johnson",
-  },
-  {
-    id: "4",
-    title: "Remote Work Policy",
-    description: "How many days per week should we work from home?",
-    optionCount: 4,
-    totalVotes: 42,
-    isActive: true,
-    expiresAt: "2024-02-25",
-    createdBy: "Sarah Wilson",
-  },
-]
+export default async function PollsPage({ searchParams }: { searchParams: Promise<{ created?: string }> }) {
+  const { created } = await searchParams
+  const supabase = await createSupabaseServerClient()
+  const justCreated = Boolean(created)
 
-export default function PollsPage() {
+  const { data: rows } = await supabase
+    .from("polls")
+    .select(`
+      id, title, description, created_by, is_active, expires_at, created_at,
+      options:poll_options (id, vote_count)
+    `)
+    .order("created_at", { ascending: false })
+
+  const polls = (rows || []).map((p: any) => {
+    const optionCount = (p.options || []).length
+    const totalVotes = (p.options || []).reduce((s: number, o: any) => s + (o.vote_count || 0), 0)
+    return {
+      id: p.id,
+      title: p.title,
+      description: p.description || "",
+      optionCount,
+      totalVotes,
+      isActive: p.is_active,
+      expiresAt: p.expires_at ? new Date(p.expires_at).toLocaleDateString() : "—",
+      createdBy: p.created_by,
+    }
+  })
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -73,8 +56,14 @@ export default function PollsPage() {
         <Button variant="outline">Filter</Button>
       </div>
       
+      {justCreated && (
+        <div className="rounded-md bg-green-50 text-green-800 border border-green-200 px-3 py-2 text-sm">
+          Poll created successfully.
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {mockPolls.map((poll) => (
+        {polls.map((poll) => (
           <Card key={poll.id} className="hover:shadow-md transition-shadow">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -114,7 +103,7 @@ export default function PollsPage() {
         ))}
       </div>
       
-      {mockPolls.length === 0 && (
+      {polls.length === 0 && (
         <div className="text-center py-12">
           <div className="text-muted-foreground mb-4">
             <svg
