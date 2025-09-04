@@ -1,18 +1,20 @@
-import { Metadata } from "next"
-import { notFound } from "next/navigation"
-import { createSupabaseServerClient } from "@/lib/supabase-server"
-import { PollDetailClient } from "@/components/poll-detail-client"
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { PollDetailClient } from "@/components/poll-detail-client";
+import { getUserVotes } from "@/lib/actions/polls";
 
 export const metadata: Metadata = {
   title: "Poll Details",
   description: "View and vote on this poll",
-}
+};
 
 // Mock data - replace with actual data fetching based on ID
 const mockPoll = {
   id: "1",
   title: "Team Meeting Preferences",
-  description: "What time works best for our weekly team meetings? We want to find a time that works for everyone in the team.",
+  description:
+    "What time works best for our weekly team meetings? We want to find a time that works for everyone in the team.",
   options: [
     { id: "1", text: "Monday 9:00 AM", pollId: "1", voteCount: 8 },
     { id: "2", text: "Monday 2:00 PM", pollId: "1", voteCount: 12 },
@@ -26,29 +28,37 @@ const mockPoll = {
   allowMultipleVotes: false,
   createdAt: new Date("2024-01-15T10:00:00"),
   updatedAt: new Date("2024-01-15T10:00:00"),
-}
+};
 
-export default async function PollPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const supabase = await createSupabaseServerClient()
+export default async function PollPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
 
-  const [{ data, error }, { data: userData }] = await Promise.all([
+  const [{ data, error }, { data: userData }, userVotes] = await Promise.all([
     supabase
-    .from("polls")
-    .select(
-      `id, title, description, created_by, is_active, allow_multiple_votes, expires_at, created_at, updated_at,
-       poll_options:poll_options(id, text, poll_id, vote_count)`
-    )
-    .eq("id", id)
-    .single(),
+      .from("polls")
+      .select(
+        `id, title, description, created_by, is_active, allow_multiple_votes, expires_at, created_at, updated_at,
+       poll_options:poll_options(id, text, poll_id, vote_count)`,
+      )
+      .eq("id", id)
+      .single(),
     supabase.auth.getUser(),
-  ])
+    getUserVotes(id),
+  ]);
 
   if (error || !data) {
-    notFound()
+    notFound();
   }
 
-  const totalVotes = (data.poll_options ?? []).reduce((sum: number, o: any) => sum + (o.vote_count ?? 0), 0)
+  const totalVotes = (data.poll_options ?? []).reduce(
+    (sum: number, o: any) => sum + (o.vote_count ?? 0),
+    0,
+  );
 
   const poll = {
     id: data.id,
@@ -67,14 +77,13 @@ export default async function PollPage({ params }: { params: Promise<{ id: strin
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
     totalVotes,
-  }
+  };
 
   return (
-    <PollDetailClient 
-      poll={poll} 
-      isOwner={userData?.user?.id === poll.createdBy} 
+    <PollDetailClient
+      poll={poll}
+      isOwner={userData?.user?.id === poll.createdBy}
+      userVotes={userVotes}
     />
-  )
+  );
 }
-
-

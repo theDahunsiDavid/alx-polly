@@ -178,8 +178,8 @@ end;
 $$ language plpgsql;
 
 drop trigger if exists votes_check_vote_rules on public.votes;
-create constraint trigger votes_check_vote_rules
-  after insert on public.votes
+create trigger votes_check_vote_rules
+  before insert on public.votes
   for each row execute function check_vote_rules();
 
 -- Maintain cached vote_count on poll_options
@@ -240,5 +240,3 @@ create index if not exists idx_polls_is_active_expires on public.polls(is_active
 create index if not exists idx_poll_options_poll_id on public.poll_options(poll_id);
 create index if not exists idx_votes_poll_id_user_id on public.votes(poll_id, user_id);
 create index if not exists idx_votes_option_id on public.votes(option_id);
-
-
