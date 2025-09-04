@@ -6,10 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { cookies } from "next/headers";
 
 export async function createPoll(formData: FormData) {
-  // Opt out of Next.js caching for this request (per Supabase Next.js guide)
-  cookies();
-  const supabase = await createSupabaseServerClient();
-
+  // Parse form data first to validate before any async operations
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim() || null;
   const allowMultipleVotes = formData.get("allowMultipleVotes") === "on";
@@ -27,14 +24,21 @@ export async function createPoll(formData: FormData) {
     throw new Error("At least two options are required");
   }
 
+  // Opt out of Next.js caching for this request
+  cookies();
+  const supabase = await createSupabaseServerClient();
+
+  // Single auth check
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
+
   if (userError || !user) {
     redirect("/login");
   }
 
+  // Insert poll first with minimal data to test performance
   const { data: poll, error: pollError } = await supabase
     .from("polls")
     .insert({
@@ -49,19 +53,28 @@ export async function createPoll(formData: FormData) {
     .single();
 
   if (pollError) {
-    throw new Error(pollError.message);
+    throw new Error(`Failed to create poll: ${pollError.message}`);
   }
 
-  const optionRows = rawOptions.map((text) => ({ poll_id: poll.id, text }));
+  // Batch insert options with optimized settings
+  const optionRows = rawOptions.map((text) => ({
+    poll_id: poll.id,
+    text,
+    vote_count: 0, // Explicitly set to avoid trigger overhead
+  }));
+
   const { error: optionsError } = await supabase
     .from("poll_options")
     .insert(optionRows);
 
   if (optionsError) {
-    throw new Error(optionsError.message);
+    // Clean up poll on failure
+    await supabase.from("polls").delete().eq("id", poll.id);
+    throw new Error(`Failed to create poll options: ${optionsError.message}`);
   }
 
-  revalidatePath("/polls");
+  // Reduce revalidation overhead by being more specific
+  revalidatePath("/polls", "page");
   redirect(`/polls?created=1`);
 }
 

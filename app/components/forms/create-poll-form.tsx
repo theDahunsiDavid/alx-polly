@@ -1,41 +1,62 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { X, Plus } from "lucide-react"
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { X, Plus } from "lucide-react";
 
-import { createPoll } from "@/lib/actions/polls"
+import { createPoll } from "@/lib/actions/polls";
 
 export function CreatePollForm() {
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const [options, setOptions] = React.useState<string[]>(["", ""])
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
+  const [options, setOptions] = React.useState<string[]>(["", ""]);
 
   const addOption = () => {
-    setOptions([...options, ""])
-  }
+    setOptions([...options, ""]);
+  };
 
   const removeOption = (index: number) => {
     if (options.length > 2) {
-      setOptions(options.filter((_, i) => i !== index))
+      setOptions(options.filter((_, i) => i !== index));
     }
-  }
+  };
 
   const updateOption = (index: number, value: string) => {
-    const newOptions = [...options]
-    newOptions[index] = value
-    setOptions(newOptions)
-  }
+    const newOptions = [...options];
+    newOptions[index] = value;
+    setOptions(newOptions);
+  };
 
-  async function onSubmit(formData: FormData) {
-    setIsLoading(true)
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isLoading) return; // Prevent double submissions
+
+    setIsLoading(true);
     try {
-      await createPoll(formData)
+      const formData = new FormData(event.currentTarget);
+
+      // Add options to form data
+      options.forEach((option) => {
+        if (option.trim()) {
+          formData.append("options[]", option.trim());
+        }
+      });
+
+      await createPoll(formData);
+    } catch (error) {
+      console.error("Poll creation failed:", error);
+      // Handle error - you might want to show a toast or error message
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card>
@@ -46,7 +67,7 @@ export function CreatePollForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={createPoll} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="title" className="text-sm font-medium">
               Poll Title *
@@ -87,7 +108,7 @@ export function CreatePollForm() {
                 Add Option
               </Button>
             </div>
-            
+
             <div className="space-y-3">
               {options.map((option, index) => (
                 <div key={index} className="flex items-center space-x-2">
@@ -97,7 +118,6 @@ export function CreatePollForm() {
                     onChange={(e) => updateOption(index, e.target.value)}
                     required
                     disabled={isLoading}
-                    name="options[]"
                   />
                   {options.length > 2 && (
                     <Button
@@ -136,7 +156,10 @@ export function CreatePollForm() {
                 name="allowMultipleVotes"
                 disabled={isLoading}
               />
-              <label htmlFor="allowMultipleVotes" className="text-sm font-medium">
+              <label
+                htmlFor="allowMultipleVotes"
+                className="text-sm font-medium"
+              >
                 Allow multiple votes per user
               </label>
             </div>
@@ -175,7 +198,5 @@ export function CreatePollForm() {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }
-
-

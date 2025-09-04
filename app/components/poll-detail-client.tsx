@@ -15,11 +15,9 @@ import { EditPollForm } from "@/components/forms/edit-poll-form";
 import {
   deletePoll,
   togglePollActive,
-  debugVoteState,
-  recalculateVoteCounts,
   clearAllVotesForPoll,
-  fixVoteConstraintIssue,
 } from "@/lib/actions/polls";
+import { ArrowLeft, Trash2, Edit3, Play, Pause, X } from "lucide-react";
 
 import { Poll } from "@/types";
 import Link from "next/link";
@@ -37,36 +35,10 @@ export function PollDetailClient({
 }: PollDetailClientProps) {
   const [isEditing, setIsEditing] = React.useState(false);
 
-  const handleDebug = async () => {
-    const result = await debugVoteState(poll.id);
-    console.log("Debug result:", result);
-  };
-
-  const handleRecalculate = async () => {
-    await recalculateVoteCounts(poll.id);
-    window.location.reload();
-  };
-
   const handleClearVotes = async () => {
     if (confirm("Are you sure you want to clear all votes for this poll?")) {
       try {
         await clearAllVotesForPoll(poll.id);
-        window.location.reload();
-      } catch (error) {
-        alert("Error: " + (error as Error).message);
-      }
-    }
-  };
-
-  const handleFixDatabase = async () => {
-    if (
-      confirm(
-        "This will clear all votes for this poll to fix the constraint issue. Are you sure?",
-      )
-    ) {
-      try {
-        await fixVoteConstraintIssue(poll.id);
-        alert("Vote constraint issue fixed! All votes have been cleared.");
         window.location.reload();
       } catch (error) {
         alert("Error: " + (error as Error).message);
@@ -85,30 +57,32 @@ export function PollDetailClient({
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" asChild>
-            <Link href="/polls">Back to Polls</Link>
+          <Button variant="outline" size="sm" asChild title="Back to Polls">
+            <Link href="/polls">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </Button>
-          <Button variant="secondary" onClick={handleDebug}>
-            Debug Votes
-          </Button>
-          <Button variant="secondary" onClick={handleRecalculate}>
-            Fix Vote Counts
-          </Button>
-          <Button variant="secondary" onClick={handleFixDatabase}>
-            Fix Database
-          </Button>
-          {isOwner && (
-            <Button variant="destructive" onClick={handleClearVotes}>
-              Clear All Votes
-            </Button>
-          )}
           {isOwner && (
             <>
               <Button
-                variant="outline"
-                onClick={() => setIsEditing(!isEditing)}
+                variant="destructive"
+                size="sm"
+                onClick={handleClearVotes}
+                title="Clear All Votes"
               >
-                {isEditing ? "Cancel Edit" : "Edit Poll"}
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(!isEditing)}
+                title={isEditing ? "Cancel Edit" : "Edit Poll"}
+              >
+                {isEditing ? (
+                  <X className="h-4 w-4" />
+                ) : (
+                  <Edit3 className="h-4 w-4" />
+                )}
               </Button>
               <form action={togglePollActive}>
                 <input type="hidden" name="pollId" value={poll.id} />
@@ -117,13 +91,23 @@ export function PollDetailClient({
                   name="nextActive"
                   value={(!poll.isActive).toString()}
                 />
-                <Button variant="outline">
-                  {poll.isActive ? "Close Poll" : "Reopen Poll"}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title={poll.isActive ? "Close Poll" : "Reopen Poll"}
+                >
+                  {poll.isActive ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
                 </Button>
               </form>
               <form action={deletePoll}>
                 <input type="hidden" name="pollId" value={poll.id} />
-                <Button variant="destructive">Delete</Button>
+                <Button variant="destructive" size="sm" title="Delete Poll">
+                  <X className="h-4 w-4" />
+                </Button>
               </form>
             </>
           )}
