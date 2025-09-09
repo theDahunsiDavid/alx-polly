@@ -192,37 +192,24 @@ export async function updatePoll(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
-export async function submitVote(formData: FormData) {
-  "use server";
-  const supabase = await createSupabaseServerClient();
-
-  const pollId = String(formData.get("pollId") || "");
-  const optionIds = formData.getAll("optionId").map((id) => String(id));
-
+// Helper function to validate vote submission
+async function validateVoteSubmission(
+  supabase: any,
+  pollId: string,
+  optionIds: string[],
+  userId: string,
+) {
   console.log("=== SUBMIT VOTE DEBUG ===");
   console.log("Poll ID:", pollId);
   console.log("Option IDs:", optionIds);
-
-  if (!pollId || optionIds.length === 0) {
-    throw new Error("Poll ID and at least one option must be provided");
-  }
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
-    redirect("/login");
-  }
-
-  console.log("User ID:", user.id);
+  console.log("User ID:", userId);
 
   // Check existing votes first
   const { data: existingVotes, error: existingVotesError } = await supabase
     .from("votes")
     .select("*")
     .eq("poll_id", pollId)
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
 
   console.log("Existing votes:", existingVotes);
   console.log("Existing votes error:", existingVotesError);
@@ -248,101 +235,143 @@ export async function submitVote(formData: FormData) {
     throw new Error("This poll has expired");
   }
 
+  return poll;
+}
+
+// Helper function to handle single vote submission
+async function handleSingleVote(
+  supabase: any,
+  pollId: string,
+  optionIds: string[],
+  userId: string,
+) {
+  // First check if user has existing votes manually
+  const { data: existingUserVotes, error: checkError } = await supabase
+    .from("votes")
+    .select("id, option_id")
+    .eq("poll_id", pollId)
+    .eq("user_id", userId);
+
+  if (checkError) {
+    throw new Error(`Failed to check existing votes: ${checkError.message}`);
+  }
+
+  console.log("Found existing votes:", existingUserVotes);
+
+  // Delete existing votes if any
+  if (existingUserVotes && existingUserVotes.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("votes")
+      .delete()
+      .eq("poll_id", pollId)
+      .eq("user_id", userId);
+
+    if (deleteError) {
+      throw new Error(
+        `Failed to remove existing votes: ${deleteError.message}`,
+      );
+    }
+    console.log("Deleted existing votes");
+  }
+
+  // Insert new vote - use only the first option for single-vote polls
+  const { error: voteError, data: insertedVote } = await supabase
+    .from("votes")
+    .insert({
+      poll_id: pollId,
+      option_id: optionIds[0],
+      user_id: userId,
+    })
+    .select();
+
+  if (voteError) {
+    console.error("Single vote insert error:", voteError);
+    // If we still get the constraint error, it means the trigger is broken
+    // Let's manually update the vote counts instead
+    if (voteError.message.includes("Multiple votes are not allowed")) {
+      throw new Error(
+        "Database constraint issue detected. Please contact an administrator to fix the database trigger.",
+      );
+    }
+    throw new Error(`Failed to submit vote: ${voteError.message}`);
+  }
+
+  console.log("Successfully inserted single vote:", insertedVote);
+}
+
+// Helper function to handle multiple votes submission
+async function handleMultipleVotes(
+  supabase: any,
+  pollId: string,
+  optionIds: string[],
+  userId: string,
+) {
+  // Delete existing votes for selected options to allow toggling
+  const { error: deleteError } = await supabase
+    .from("votes")
+    .delete()
+    .eq("poll_id", pollId)
+    .eq("user_id", userId)
+    .in("option_id", optionIds);
+
+  if (deleteError) {
+    console.error("Multi-vote delete error:", deleteError);
+    throw new Error(`Failed to remove existing votes: ${deleteError.message}`);
+  }
+
+  // Insert new votes
+  const voteRows = optionIds.map((optionId) => ({
+    poll_id: pollId,
+    option_id: optionId,
+    user_id: userId,
+  }));
+
+  const { error: voteError, data: insertedVotes } = await supabase
+    .from("votes")
+    .insert(voteRows)
+    .select();
+
+  if (voteError) {
+    console.error("Multi-vote insert error:", voteError);
+    throw new Error(`Failed to submit votes: ${voteError.message}`);
+  }
+
+  console.log("Successfully inserted multi votes:", insertedVotes);
+}
+
+export async function submitVote(formData: FormData) {
+  "use server";
+  const supabase = await createSupabaseServerClient();
+
+  const pollId = String(formData.get("pollId") || "");
+  const optionIds = formData.getAll("optionId").map((id) => String(id));
+
+  if (!pollId || optionIds.length === 0) {
+    throw new Error("Poll ID and at least one option must be provided");
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    redirect("/login");
+  }
+
   try {
-    // Use upsert approach with unique constraint to handle the database trigger issue
-    // For single-vote polls, we'll use a workaround since the constraint trigger is problematic
+    // Validate the vote submission and get poll settings
+    const poll = await validateVoteSubmission(
+      supabase,
+      pollId,
+      optionIds,
+      user.id,
+    );
 
+    // Handle voting based on poll type
     if (!poll.allow_multiple_votes) {
-      // For single-vote polls, use a different approach to avoid the constraint trigger
-      // First check if user has existing votes manually
-      const { data: existingUserVotes, error: checkError } = await supabase
-        .from("votes")
-        .select("id, option_id")
-        .eq("poll_id", pollId)
-        .eq("user_id", user.id);
-
-      if (checkError) {
-        throw new Error(
-          `Failed to check existing votes: ${checkError.message}`,
-        );
-      }
-
-      console.log("Found existing votes:", existingUserVotes);
-
-      // Delete existing votes if any
-      if (existingUserVotes && existingUserVotes.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("votes")
-          .delete()
-          .eq("poll_id", pollId)
-          .eq("user_id", user.id);
-
-        if (deleteError) {
-          throw new Error(
-            `Failed to remove existing votes: ${deleteError.message}`,
-          );
-        }
-        console.log("Deleted existing votes");
-      }
-
-      // Insert new vote - use only the first option for single-vote polls
-      const { error: voteError, data: insertedVote } = await supabase
-        .from("votes")
-        .insert({
-          poll_id: pollId,
-          option_id: optionIds[0],
-          user_id: user.id,
-        })
-        .select();
-
-      if (voteError) {
-        console.error("Single vote insert error:", voteError);
-        // If we still get the constraint error, it means the trigger is broken
-        // Let's manually update the vote counts instead
-        if (voteError.message.includes("Multiple votes are not allowed")) {
-          throw new Error(
-            "Database constraint issue detected. Please contact an administrator to fix the database trigger.",
-          );
-        }
-        throw new Error(`Failed to submit vote: ${voteError.message}`);
-      }
-
-      console.log("Successfully inserted single vote:", insertedVote);
+      await handleSingleVote(supabase, pollId, optionIds, user.id);
     } else {
-      // For multi-vote polls, handle each vote
-      // Delete existing votes for selected options to allow toggling
-      const { error: deleteError } = await supabase
-        .from("votes")
-        .delete()
-        .eq("poll_id", pollId)
-        .eq("user_id", user.id)
-        .in("option_id", optionIds);
-
-      if (deleteError) {
-        console.error("Multi-vote delete error:", deleteError);
-        throw new Error(
-          `Failed to remove existing votes: ${deleteError.message}`,
-        );
-      }
-
-      // Insert new votes
-      const voteRows = optionIds.map((optionId) => ({
-        poll_id: pollId,
-        option_id: optionId,
-        user_id: user.id,
-      }));
-
-      const { error: voteError, data: insertedVotes } = await supabase
-        .from("votes")
-        .insert(voteRows)
-        .select();
-
-      if (voteError) {
-        console.error("Multi-vote insert error:", voteError);
-        throw new Error(`Failed to submit votes: ${voteError.message}`);
-      }
-
-      console.log("Successfully inserted multi votes:", insertedVotes);
+      await handleMultipleVotes(supabase, pollId, optionIds, user.id);
     }
 
     // Recalculate vote counts to ensure consistency
