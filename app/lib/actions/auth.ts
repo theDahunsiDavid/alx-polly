@@ -27,8 +27,11 @@ function redactEmail(email: string): string {
   if (!EMAIL_REGEX.test(email)) {
     return "[redacted]";
   }
-  const [localPart, domainPart] = email.split('@');
-  const redactedLocalPart = localPart.length > 2 ? localPart.substring(0, 2) + '***' : localPart.substring(0,2) + '***';
+  const [localPart, domainPart] = email.split("@");
+  const redactedLocalPart =
+    localPart.length > 2
+      ? localPart.substring(0, 2) + "***"
+      : localPart.substring(0, 2) + "***";
   return `${redactedLocalPart}@${domainPart}`;
 }
 
@@ -56,9 +59,9 @@ export async function login(formData: FormData): Promise<AuthResult | never> {
     };
   }
 
-  if (password.length < 6) {
+  if (password.length < 8) {
     return {
-      error: "Password must be at least 6 characters long",
+      error: "Password must be at least 8 characters",
     };
   }
 
