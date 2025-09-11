@@ -14,14 +14,36 @@ reviews:
 
   # Tools configuration
   tools:
+    # Security scanning tool
+    security_scanning:
+      enabled: true
+      scan_dependencies: true
+      scan_secrets: true
+      vulnerability_alerts: true
+      sast_enabled: true
+
+    # AI suggestions tool
+    ai_suggestions:
+      enabled: true
+      features:
+        - code_review
+        - security_analysis
+        - performance_optimization
+        - best_practices
+        - accessibility_checks
+
     # Dependency vulnerability scanning
     osvScanner:
       enabled: true
+
     # Secret scanning
     gitleaks:
       enabled: true
-    # SAST / code security & quality
 
+  # Path-specific instructions
+  path_instructions:
+    # Next.js Components - Focus on React best practices
+    - path: "app/components/**/*.tsx"
       instructions: |
         When reviewing Next.js components, pay special attention to:
         - Component composition and hierarchy optimization
@@ -73,8 +95,14 @@ reviews:
         - Check for sensitive data exposure
         - Verify access control patterns
         - Review backup procedures
-    - path: "**/lib/supabase/**/*.ts"
         - Validate data encryption
+
+    - path: "**/lib/supabase/**/*.ts"
+      instructions: |
+        When reviewing Supabase-related code:
+        - Validate data encryption
+        - Check RLS policies
+        - Verify secure API usage
 
     # Authentication and Authorization
     - path: "app/(auth)/**/*.tsx"
