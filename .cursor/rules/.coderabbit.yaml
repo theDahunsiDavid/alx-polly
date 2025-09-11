@@ -14,23 +14,12 @@ reviews:
 
   # Tools configuration
   tools:
-    # Security scanning tool
-    security_scanning:
+    # Static analysis security tools (schema-compliant)
+    semgrep:
       enabled: true
-      scan_dependencies: true
-      scan_secrets: true
-      vulnerability_alerts: true
-      sast_enabled: true
+    checkov:
+      enabled: true
 
-    # AI suggestions tool
-    ai_suggestions:
-      enabled: true
-      features:
-        - code_review
-        - security_analysis
-        - performance_optimization
-        - best_practices
-        - accessibility_checks
 
     # Dependency vulnerability scanning
     osvScanner:
