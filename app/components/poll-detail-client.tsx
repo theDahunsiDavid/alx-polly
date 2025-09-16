@@ -17,10 +17,11 @@ import {
   togglePollActive,
   clearAllVotesForPoll,
 } from "@/lib/actions/polls";
-import { ArrowLeft, Trash2, Edit3, Play, Pause, X } from "lucide-react";
+import { ArrowLeft, Trash2, Edit3, Play, Pause, X, Share2 } from "lucide-react";
 
 import { Poll } from "@/types";
 import Link from "next/link";
+import { PollShareDialog } from "@/components/poll-share-dialog";
 
 interface PollDetailClientProps {
   poll: Poll;
@@ -34,6 +35,7 @@ export function PollDetailClient({
   userVotes,
 }: PollDetailClientProps) {
   const [isEditing, setIsEditing] = React.useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = React.useState(false);
 
   const handleClearVotes = async () => {
     if (confirm("Are you sure you want to clear all votes for this poll?")) {
@@ -61,6 +63,14 @@ export function PollDetailClient({
             <Link href="/polls">
               <ArrowLeft className="h-4 w-4" />
             </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsShareDialogOpen(true)}
+            title="Share Poll"
+          >
+            <Share2 className="h-4 w-4" />
           </Button>
           {isOwner && (
             <>
@@ -185,6 +195,12 @@ export function PollDetailClient({
           </div>
         </div>
       )}
+
+      <PollShareDialog
+        poll={poll}
+        isOpen={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+      />
     </div>
   );
 }

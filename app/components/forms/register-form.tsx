@@ -11,12 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { register } from "@/lib/actions/auth";
 
 export function RegisterForm() {
-  const [name, setName] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
@@ -27,20 +24,13 @@ export function RegisterForm() {
     setError(null);
     setSuccess(null);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-        },
-      },
-    });
+    const formData = new FormData(event.currentTarget as HTMLFormElement);
+    const result = await register(formData);
 
-    if (error) {
-      setError(error.message);
-    } else {
-      setSuccess("Registration successful! Please check your email to verify your account.");
+    if (result?.error) {
+      setError(result.error);
+    } else if (result?.success) {
+      setSuccess(result.success);
     }
     setIsLoading(false);
   }
@@ -59,6 +49,7 @@ export function RegisterForm() {
             <div className="grid gap-2">
               <Input
                 id="name"
+                name="name"
                 placeholder="Full Name"
                 type="text"
                 autoCapitalize="words"
@@ -66,13 +57,12 @@ export function RegisterForm() {
                 autoCorrect="off"
                 disabled={isLoading}
                 required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Input
                 id="email"
+                name="email"
                 placeholder="name@example.com"
                 type="email"
                 autoCapitalize="none"
@@ -80,20 +70,17 @@ export function RegisterForm() {
                 autoCorrect="off"
                 disabled={isLoading}
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Input
                 id="password"
+                name="password"
                 placeholder="Create a password"
                 type="password"
                 autoComplete="new-password"
                 disabled={isLoading}
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             {error && (

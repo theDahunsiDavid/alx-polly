@@ -11,31 +11,23 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { login } from "@/lib/actions/auth";
 
 export function LoginForm() {
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
-  const router = useRouter();
 
   async function onSubmit(event: React.SyntheticEvent) {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const formData = new FormData(event.currentTarget as HTMLFormElement);
+    const result = await login(formData);
 
-    if (error) {
-      setError(error.message);
+    if (result?.error) {
+      setError(result.error);
       setIsLoading(false);
-    } else {
-      router.push("/dashboard");
     }
   }
 
@@ -53,6 +45,7 @@ export function LoginForm() {
             <div className="grid gap-2">
               <Input
                 id="email"
+                name="email"
                 placeholder="name@example.com"
                 type="email"
                 autoCapitalize="none"
@@ -60,20 +53,17 @@ export function LoginForm() {
                 autoCorrect="off"
                 disabled={isLoading}
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Input
                 id="password"
+                name="password"
                 placeholder="Enter your password"
                 type="password"
                 autoComplete="current-password"
                 disabled={isLoading}
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             {error && (
